@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm \"C:\\Users\\Chandan singh\\source\\repos\\AspireApp.BedRock.SonetOps\\AspireApp.BedRock.SonetOps.Web\\Components\\Pages\\Login.razor\" \"C:\\Users\\Chandan singh\\source\\repos\\AspireApp.BedRock.SonetOps\\AspireApp.BedRock.SonetOps.Web\\Components\\Layout\\LoginDisplay.razor\")",
+      "Bash(dotnet build \"C:\\Users\\Chandan singh\\source\\repos\\AspireApp.BedRock.SonetOps\\AspireApp.BedRock.SonetOps.sln\")",
+      "Bash(dotnet build)",
+      "Bash(git init)",
+      "Bash(git add .)",
+      "Bash(mkdir -p .claude/agents)",
+      "Bash(mkdir \".claude\\agents\")",
+      "Bash(gh pr list)",
+      "Bash(dotnet test AspireApp.BedRock.SonetOps.TestsAspireApp.BedRock.SonetOps.Tests.csproj -v n)",
+      "Bash(dotnet test AspireApp.BedRock.SonetOps.Tests/AspireApp.BedRock.SonetOps.Tests.csproj -v n)",
+      "Bash(dotnet test \"C:\\Users\\Chandan singh\\source\\repos\\AspireApp.BedRock.SonetOps\\AspireApp.BedRock.SonetOps.Tests\\AspireApp.BedRock.SonetOps.Tests.csproj\" --verbosity normal)",
+      "Bash(python code_review_agent.py AspireApp.BedRock.SonetOps.Tests)",
+      "Bash(pip install radon bandit pylint)",
+      "Bash(python -m pip install radon bandit pylint)",
+      "Bash(C:UsersChandan singhAppDataLocalProgramsPythonPython39python.exe -m pip install radon bandit pylint)",
+      "Bash(C:Python39python.exe code_review_agent.py \"AspireApp.BedRock.SonetOps.Tests\")",
+      "Bash(powershell -ExecutionPolicy Bypass -File run_review.ps1)",
+      "Bash(dotnet new webapi -n AspireApp.BedRock.SonetOps.RoutingService -o AspireApp.BedRock.SonetOps.RoutingService)",
+      "Bash(dotnet sln \"C:\\Users\\Chandan singh\\source\\repos\\AspireApp.BedRock.SonetOps\\AspireApp.BedRock.SonetOps.sln\" add \"C:\\Users\\Chandan singh\\source\\repos\\AspireApp.BedRock.SonetOps\\AspireApp.BedRock.SonetOps.RoutingService\\AspireApp.BedRock.SonetOps.RoutingService.csproj\")",
+      "Bash(dotnet new classlib -n AspireApp.BedRock.PaymentGateway)",
+      "Bash(mkdir AspireApp.BedRock.PaymentGateway)",
+      "Bash(dotnet new classlib)",
+      "Bash(git remote add origin https://github.com/MrChandanSingh/agentic-ai-apire-bedrock.git)"
+    ],
+    "deny": []
+  }
+}

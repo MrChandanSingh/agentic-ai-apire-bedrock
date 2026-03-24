@@ -1,0 +1,178 @@
+@page "/payment"
+@inject PaymentProcessor PaymentProcessor
+@inject IJSRuntime JSRuntime
+@inject IConfiguration Configuration
+@inject ILogger<PaymentForm> Logger
+@inject NavigationManager NavigationManager
+
+@if (!string.IsNullOrEmpty(ErrorMessage))
+{
+    <div class="alert alert-danger" role="alert">
+        @ErrorMessage
+    </div>
+}
+
+<div class="payment-container">
+    <h3>Payment Details</h3>
+    
+    <div class="form-group">
+        <label for="amount">Amount</label>
+        <input type="number" class="form-control" id="amount" @bind="Amount" />
+    </div>
+    
+    <button class="btn btn-primary" @onclick="InitiatePayment" disabled="@IsProcessing">
+        @if (IsProcessing)
+        {
+            <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span>Processing...</span>
+        }
+        else
+        {
+            <span>Pay Now</span>
+        }
+    </button>
+</div>
+
+@code {
+    private decimal Amount { get; set; }
+    private bool IsProcessing { get; set; }
+    private string ErrorMessage { get; set; }
+    
+    [CascadingParameter]
+    private Task<AuthenticationState> AuthenticationStateTask { get; set; }
+    
+    private PaymentSettings Settings;
+    private bool IsAuthenticated;
+    
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateTask;
+        IsAuthenticated = authState.User.Identity.IsAuthenticated;
+        
+        if (!IsAuthenticated)
+        {
+            NavigationManager.NavigateTo($"/login?returnUrl={Uri.EscapeDataString(NavigationManager.Uri)}");
+            return;
+        }
+        Settings = Configuration.GetSection("Payment").Get<PaymentSettings>();
+    }
+    
+    [JSInvokable]
+    public async Task HandlePaymentSuccess(string paymentId, string orderId, string signature)
+    {
+        try
+        {
+            var isValid = await PaymentService.VerifyPaymentAsync(orderId, paymentId, signature);
+            if (isValid)
+            {
+                // Payment successful - redirect to success page
+                NavigationManager.NavigateTo("/payment/success");
+            }
+            else
+            {
+                ErrorMessage = "Payment verification failed";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Payment verification failed");
+            ErrorMessage = "Failed to verify payment";
+        }
+    }
+    
+    [JSInvokable]
+    public void HandlePaymentFailure(string code, string description)
+    {
+        ErrorMessage = $"Payment failed: {description}";
+        Logger.LogWarning("Payment failed. Code: {Code}, Description: {Description}", code, description);
+    }
+    
+    [JSInvokable]
+    public void HandlePaymentDismissal()
+    {
+        IsProcessing = false;
+        StateHasChanged();
+    }
+
+    private async Task ProcessPayment()
+    {
+        string orderId = null;
+        try
+        {
+            orderId = await PaymentProcessor.ProcessPaymentAsync(Amount);
+            await InitializeRazorpayCheckout(orderId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Payment failed");
+            ErrorMessage = "Failed to process payment. Please try again.";
+            throw;
+        }
+    }
+
+    private async Task InitiatePayment()
+    {
+        if (Amount <= 0)
+        {
+            ErrorMessage = "Please enter a valid amount";
+            return;
+        }
+        
+        IsProcessing = true;
+        ErrorMessage = null;
+        
+        try
+        {
+            await ProcessPayment();
+        }
+        catch
+        {
+            // Error is already logged and message set
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+        try
+        {
+            
+            var options = new
+            {
+                key = Settings.RazorpayKey,
+                amount = Amount * 100,
+                currency = "INR",
+                name = Settings.CompanyName,
+                description = Settings.Description,
+                handler = new
+                {
+                    success = DotNet.createJSObjectReference(this).invokeMethodAsync("HandlePaymentSuccess"),
+                    failure = DotNet.createJSObjectReference(this).invokeMethodAsync("HandlePaymentFailure")
+                },
+                order_id = orderId,
+                handler = "handlePaymentSuccess",
+                modal = new
+                {
+                    ondismiss = DotNet.createJSObjectReference(this).invokeMethodAsync("HandlePaymentDismissal")
+                }
+                },
+                theme = new
+                {
+                    color = "#3399cc"
+                }
+            };
+
+            await JSRuntime.InvokeVoidAsync("initializeRazorpay", options);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Payment initiation failed");
+            ErrorMessage = "Failed to initiate payment. Please try again.";
+        }
+        finally
+        {
+            IsProcessing = false;
+            StateHasChanged();
+        }
+    }
+}

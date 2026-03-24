@@ -1,0 +1,9 @@
+{
+  "agents": {
+    "chandan-code-reviewer": {
+      "type": "code-review",
+      "config": "../chandan-code-reviewer.json",
+      "implementation": "../code_review_agent.py"
+    }
+  }
+}

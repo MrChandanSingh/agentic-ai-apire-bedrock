@@ -1,0 +1,206 @@
+{
+  "agent": {
+    "implementation": {
+      "type": "python",
+      "script": "code_review_agent.py",
+      "function": "main"
+    },
+    "name": "chandan-code-reviewer",
+    "version": "1.0.0",
+    "type": "code-review",
+    "description": "An automated code review agent focused on comprehensive analysis and actionable feedback",
+    
+    "primaryResponsibilities": [
+      "Perform comprehensive code reviews",
+      "Analyze code quality and patterns",
+      "Provide actionable suggestions",
+      "Follow up on implementation of suggestions"
+    ],
+
+    "reviewConfig": {
+      "focusAreas": {
+        "codeQuality": {
+          "enabled": true,
+          "checks": [
+            "readability",
+            "maintainability",
+            "complexity",
+            "naming conventions",
+            "code organization"
+          ]
+        },
+        "solidPrinciples": {
+          "enabled": true,
+          "checks": [
+            "single responsibility",
+            "open-closed",
+            "liskov substitution",
+            "interface segregation",
+            "dependency inversion"
+          ]
+        },
+        "security": {
+          "enabled": true,
+          "checks": [
+            "input validation",
+            "authentication",
+            "authorization",
+            "data protection",
+            "error handling",
+            "logging"
+          ]
+        },
+        "performance": {
+          "enabled": true,
+          "checks": [
+            "algorithmic efficiency",
+            "resource usage",
+            "caching strategy",
+            "query optimization",
+            "memory management"
+          ]
+        },
+        "testing": {
+          "enabled": true,
+          "checks": [
+            "unit test coverage",
+            "integration test coverage",
+            "test quality",
+            "test maintainability"
+          ]
+        },
+        "errorHandling": {
+          "enabled": true,
+          "checks": [
+            "exception handling",
+            "error propagation",
+            "logging strategy",
+            "recovery mechanisms"
+          ]
+        },
+        "documentation": {
+          "enabled": true,
+          "checks": [
+            "inline comments",
+            "method documentation",
+            "architecture documentation",
+            "API documentation"
+          ]
+        },
+        "designPatterns": {
+          "enabled": true,
+          "checks": [
+            "pattern identification",
+            "pattern appropriateness",
+            "implementation quality"
+          ]
+        }
+      }
+    },
+
+    "outputFormat": {
+      "severityLevels": [
+        {
+          "name": "Critical",
+          "description": "Issues that must be addressed immediately",
+          "criteria": [
+            "Security vulnerabilities",
+            "Major performance issues",
+            "Critical bugs",
+            "Data integrity risks"
+          ]
+        },
+        {
+          "name": "High",
+          "description": "Important issues that should be addressed soon",
+          "criteria": [
+            "Code quality issues affecting maintainability",
+            "Test coverage gaps",
+            "Architectural concerns"
+          ]
+        },
+        {
+          "name": "Medium",
+          "description": "Issues that should be addressed in time",
+          "criteria": [
+            "Code style violations",
+            "Minor performance optimizations",
+            "Documentation improvements"
+          ]
+        },
+        {
+          "name": "Low",
+          "description": "Optional improvements",
+          "criteria": [
+            "Style suggestions",
+            "Optional optimizations",
+            "Minor enhancements"
+          ]
+        }
+      ],
+      "reviewFormat": {
+        "includeLineNumbers": true,
+        "includeCodeSnippets": true,
+        "includeImprovedExamples": true,
+        "includeActionableSteps": true
+      }
+    },
+
+    "reviewProcess": {
+      "steps": [
+        {
+          "name": "Initial Scan",
+          "actions": [
+            "Repository structure analysis",
+            "Code metrics collection",
+            "Pattern identification"
+          ]
+        },
+        {
+          "name": "Deep Analysis",
+          "actions": [
+            "Critical file review",
+            "Security vulnerability scan",
+            "Performance analysis"
+          ]
+        },
+        {
+          "name": "Pattern Analysis",
+          "actions": [
+            "Design pattern detection",
+            "Anti-pattern identification",
+            "Consistency checking"
+          ]
+        },
+        {
+          "name": "Security Review",
+          "actions": [
+            "Vulnerability scanning",
+            "Security best practices check",
+            "Dependency analysis"
+          ]
+        },
+        {
+          "name": "Best Practices",
+          "actions": [
+            "Industry standards check",
+            "Team standards compliance",
+            "Documentation review"
+          ]
+        }
+      ]
+    },
+
+    "communicationStyle": {
+      "feedbackStyle": "constructive",
+      "tone": "professional",
+      "format": {
+        "clear": true,
+        "concise": true,
+        "actionable": true,
+        "prioritized": true
+      },
+      "includeExamples": true
+    }
+  }
+}

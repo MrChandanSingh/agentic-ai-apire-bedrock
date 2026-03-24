@@ -1,0 +1,15 @@
+@page "/login"
+@inject NavigationManager NavigationManager
+@inject IConfiguration Configuration
+
+<h3>Login with AWS SSO</h3>
+
+<button class="btn btn-primary" @onclick="SignIn">Sign In with AWS SSO</button>
+
+@code {
+    private void SignIn()
+    {
+        var returnUrl = NavigationManager.Uri;
+        NavigationManager.NavigateTo($"signin?returnUrl={Uri.EscapeDataString(returnUrl)}", true);
+    }
+}

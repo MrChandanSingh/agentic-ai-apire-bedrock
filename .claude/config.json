@@ -1,0 +1,12 @@
+{
+  "agents": {
+    "chandan-code-reviewer": {
+      "enabled": true,
+      "config": "${workspaceFolder}/.claude/agents/chandan-code-reviewer/settings.json"
+    }
+  },
+  "python": {
+    "path": "python",
+    "version": ">=3.8"
+  }
+}

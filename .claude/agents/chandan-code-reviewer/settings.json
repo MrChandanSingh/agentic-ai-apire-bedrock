@@ -1,0 +1,20 @@
+{
+  "name": "chandan-code-reviewer",
+  "version": "1.0.0",
+  "type": "code-review",
+  "command": "python",
+  "script": "code_review_agent.py",
+  "working_directory": "${workspaceFolder}",
+  "environment": {
+    "PYTHONPATH": "${workspaceFolder}",
+    "PATH": "${env:PATH}"
+  },
+  "dependencies": {
+    "python": ">=3.8",
+    "pip": [
+      "radon",
+      "bandit",
+      "pylint"
+    ]
+  }
+}

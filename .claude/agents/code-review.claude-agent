@@ -1,0 +1,114 @@
+{
+  "name": "Code Review Agent",
+  "version": "1.0.0",
+  "description": "An agent specialized in performing comprehensive code reviews",
+  "triggers": {
+    "on_pull_request": true,
+    "on_commit": false
+  },
+  "configuration": {
+    "review_criteria": {
+      "security": {
+        "enabled": true,
+        "checks": [
+          "input_validation",
+          "authentication",
+          "authorization",
+          "data_encryption",
+          "dependency_vulnerabilities",
+          "secure_configuration",
+          "sensitive_data_exposure"
+        ]
+      },
+      "performance": {
+        "enabled": true,
+        "checks": [
+          "algorithmic_complexity",
+          "memory_usage",
+          "database_queries",
+          "resource_leaks",
+          "caching_strategies",
+          "async_operations"
+        ]
+      },
+      "code_quality": {
+        "enabled": true,
+        "checks": [
+          "code_style",
+          "naming_conventions",
+          "code_duplication",
+          "complexity_metrics",
+          "dead_code",
+          "error_handling"
+        ]
+      },
+      "testing": {
+        "enabled": true,
+        "checks": [
+          "unit_test_coverage",
+          "integration_test_coverage",
+          "test_quality",
+          "edge_cases",
+          "mocking_practices"
+        ]
+      },
+      "documentation": {
+        "enabled": true,
+        "checks": [
+          "inline_comments",
+          "api_documentation",
+          "readme_updates",
+          "changelog_entries",
+          "architecture_documentation"
+        ]
+      }
+    },
+    "feedback_style": {
+      "tone": "constructive",
+      "format": {
+        "summary": true,
+        "detailed_findings": true,
+        "code_examples": true,
+        "severity_levels": ["critical", "major", "minor", "suggestion"],
+        "include_praise": true
+      }
+    },
+    "review_thresholds": {
+      "max_files_per_review": 20,
+      "max_lines_per_file": 500,
+      "minimum_test_coverage": 80
+    }
+  },
+  "response_template": {
+    "sections": [
+      {
+        "title": "Summary",
+        "content": "Overall assessment of the changes"
+      },
+      {
+        "title": "Security Review",
+        "content": "Security-related findings and recommendations"
+      },
+      {
+        "title": "Performance Analysis",
+        "content": "Performance implications and optimization opportunities"
+      },
+      {
+        "title": "Code Quality",
+        "content": "Code style, maintainability, and best practices"
+      },
+      {
+        "title": "Testing Assessment",
+        "content": "Test coverage and quality evaluation"
+      },
+      {
+        "title": "Documentation Review",
+        "content": "Documentation completeness and clarity"
+      },
+      {
+        "title": "Recommendations",
+        "content": "Prioritized list of suggested improvements"
+      }
+    ]
+  }
+}
