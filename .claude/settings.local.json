@@ -26,7 +26,18 @@
       "Bash(git remote add origin https://github.com/MrChandanSingh/agentic-ai-apire-bedrock.git)",
       "Bash(git branch -M main)",
       "Bash(git commit -m \"Initial commit\")",
-      "Bash(git push -u origin main)"
+      "Bash(git push -u origin main)",
+      "Bash(git add README.md)",
+      "Bash(git commit -m \"Resolve merge conflict in README.md\")",
+      "Bash(rm C:UsersChandan singhsourcereposAspireApp.BedRock.SonetOpsAspireApp.BedRock.SonetOps.ApiServiceDataTransactionDbContext.cs)",
+      "Bash(git add CLAUDE.md)",
+      "Bash(git commit -m \"Add Git commands and workflow documentation to CLAUDE.md\")",
+      "Bash(git push)",
+      "Bash(git add docs/Marketplace.md)",
+      "Bash(git commit -m \"Add marketplace specification documentation\")",
+      "Bash(git add \"docs/Marketplace.md\")",
+      "Bash(git add \".\\docs\\Marketplace.md\")",
+      "Bash(git commit -m \"docs: add marketplace and transaction documentation\n\n- Add comprehensive marketplace specification\n- Add transaction processing documentation\n- Add chandan-codemanagement agent\n- Update CLAUDE.md with new agent documentation\")"
     ],
     "deny": []
   }

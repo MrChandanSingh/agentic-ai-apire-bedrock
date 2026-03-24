@@ -1,4 +1,8 @@
 using AspireApp.BedRock.SonetOps.ApiService.Services;
+using AspireApp.BedRock.SonetOps.ApiService.Data;
+using AspireApp.BedRock.SonetOps.ApiService.Repositories;
+using Microsoft.EntityFrameworkCore;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +14,16 @@ builder.Services.AddProblemDetails();
 
 // Add security services
 builder.Services.AddScoped<ISecureConfigurationService, SecureConfigurationService>();
+
+// Add transaction processing services
+builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+builder.Services.AddScoped<ITransactionProcessingService, TransactionProcessingService>();
+builder.Services.AddSingleton<IDistributedLock, RedisDistributedLock>();
+builder.Services.AddHostedService<TransactionProcessingBackgroundService>();
+
+// Add Redis
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+    ConnectionMultiplexer.Connect(builder.Configuration.GetConnectionString("Redis")));
 
 // Add Azure Key Vault configuration if URL is provided
 if (!string.IsNullOrEmpty(builder.Configuration["KeyVault:Url"]))
