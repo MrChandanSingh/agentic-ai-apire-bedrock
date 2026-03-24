@@ -23,7 +23,10 @@
       "Bash(dotnet new classlib -n AspireApp.BedRock.PaymentGateway)",
       "Bash(mkdir AspireApp.BedRock.PaymentGateway)",
       "Bash(dotnet new classlib)",
-      "Bash(git remote add origin https://github.com/MrChandanSingh/agentic-ai-apire-bedrock.git)"
+      "Bash(git remote add origin https://github.com/MrChandanSingh/agentic-ai-apire-bedrock.git)",
+      "Bash(git branch -M main)",
+      "Bash(git commit -m \"Initial commit\")",
+      "Bash(git push -u origin main)"
     ],
     "deny": []
   }
