@@ -1,0 +1,723 @@
+// Removed @page directive as this is now a child component
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Cryptography
+@using Microsoft.AspNetCore.Components.Forms
+@using System.Text.RegularExpressions
+@using System.Globalization
+@using Microsoft.Extensions.Localization
+@using Microsoft.AspNetCore.Components.Server.ProtectedBrowserStorage
+@using System.Reactive.Subjects
+@using System.Reactive.Linq
+@using Microsoft.JSInterop
+@inject ILogger<PaymentFormComponent> Logger
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+@inject IEncryptionService EncryptionService
+@inject IAntiFraudService AntiFraudService
+@inject IPaymentMethodService PaymentMethodService
+@inject IWalletService WalletService
+@inject IStringLocalizer<PaymentFormComponent> L
+@inject ProtectedSessionStorage SessionStorage
+@inject ProtectedLocalStorage LocalStorage
+@inject IJSRuntime JSRuntime
+@inject IAnalyticsService AnalyticsService
+
+<div class="payment-form-container" role="main" aria-labelledby="payment-form-title">
+    <h3 id="payment-form-title" tabindex="-1">@L["AdvancedPaymentOptions"]</h3>
+
+    <EditForm Model="@paymentModel" OnValidSubmit="@HandleValidSubmit" aria-label="@L["PaymentForm"]">
+        <DataAnnotationsValidator />
+        <div class="alert alert-danger @(showError ? "d-block" : "d-none")" role="alert" aria-live="assertive">
+            @errorMessage
+        </div>
+
+        @if (isProcessing)
+        {
+            <div class="processing-overlay">
+                <div class="spinner-border text-primary" role="status" aria-live="polite">
+                    <span class="visually-hidden">@L["ProcessingPayment"]</span>
+                </div>
+            </div>
+        }
+
+        <div class="payment-method-selector mb-4" role="group" aria-labelledby="payment-method-title">
+            <h5 id="payment-method-title">@L["SelectPaymentMethod"]</h5>
+            <div class="payment-options">
+                @foreach (var method in availablePaymentMethods)
+                {
+                    <div class="payment-option @(selectedPaymentMethod == method.Id ? "selected" : "")"
+                         @onclick="() => SelectPaymentMethod(method.Id)">
+                        <i class="@method.Icon"></i>
+                        <span>@method.Name</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @if (selectedPaymentMethod == "card")
+        {
+            <div class="card-payment-section">
+                <div class="form-group mb-3">
+                    <label for="cardHolder">@L["CardHolderName"]</label>
+                    <InputText id="cardHolder" 
+                             @bind-Value="paymentModel.CardHolderName" 
+                             class="form-control @GetValidationClass(() => paymentModel.CardHolderName)"
+                             maxlength="100"
+                             autocomplete="cc-name" />
+                    <ValidationMessage For="@(() => paymentModel.CardHolderName)" />
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="cardNumber">@L["CardNumber"]</label>
+                    <div class="input-group">
+                        <InputText id="cardNumber" 
+                                 @bind-Value="paymentModel.CardNumber"
+                                 @oninput="OnCardNumberInput"
+                                 class="form-control @GetValidationClass(() => paymentModel.CardNumber)"
+                                 maxlength="19"
+                                 autocomplete="cc-number" />
+                        <span class="input-group-text">
+                            <i class="@GetCardTypeIcon()"></i>
+                        </span>
+                    </div>
+                    <ValidationMessage For="@(() => paymentModel.CardNumber)" />
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="expiryDate">@L["ExpiryDateFormat", "MM/YY"]</label>
+                            <InputText id="expiryDate"
+                                     @bind-Value="paymentModel.ExpiryDate"
+                                     @oninput="OnExpiryDateInput"
+                                     class="form-control @GetValidationClass(() => paymentModel.ExpiryDate)"
+                                     maxlength="5"
+                                     autocomplete="cc-exp" />
+                            <ValidationMessage For="@(() => paymentModel.ExpiryDate)" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="cvv">@L["CVV"]</label>
+                            <InputText id="cvv"
+                                     @bind-Value="paymentModel.CVV"
+                                     type="password"
+                                     @oninput="OnCVVInput"
+                                     class="form-control @GetValidationClass(() => paymentModel.CVV)"
+                                     maxlength="4"
+                                     autocomplete="cc-csc" />
+                            <ValidationMessage For="@(() => paymentModel.CVV)" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-check mb-3">
+                    <InputCheckbox id="saveCard" @bind-Value="paymentModel.SaveCard" />
+                    <label class="form-check-label" for="saveCard">
+                        @L["SaveCardFuture"]
+                    </label>
+                </div>
+            </div>
+        }
+        else if (selectedPaymentMethod == "wallet")
+        {
+            <div class="wallet-payment-section">
+                <div class="wallet-balance mb-3">
+                    <h6>@L["AvailableBalance"]</h6>
+                    <div class="balance-amount" aria-label="@L["BalanceAmount", walletBalance]">
+                        @walletBalance.ToString("C2", CurrentCulture)
+                    </div>
+                </div>
+                @if (walletBalance < paymentModel.Amount)
+                {
+                    <div class="alert alert-warning">
+                        @L["InsufficientBalance"]
+                    </div>
+                }
+            </div>
+        }
+        else if (selectedPaymentMethod == "crypto")
+        {
+            <div class="crypto-payment-section">
+                <div class="form-group mb-3">
+                    <label for="cryptoAddress">Wallet Address</label>
+                    <InputText id="cryptoAddress" 
+                             @bind-Value="paymentModel.CryptoAddress"
+                             class="form-control" />
+                </div>
+                <div class="crypto-rates mb-3">
+                    <h6>Current Exchange Rates</h6>
+                    @foreach (var rate in cryptoRates)
+                    {
+                        <div class="rate-item">
+                            <span>@rate.Currency</span>
+                            <span aria-label="@L["ExchangeRate", rate.Currency, rate.Rate]">@rate.Rate.ToString("N2", CurrentCulture)</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+
+        <div class="payment-details mb-4">
+            <div class="form-group mb-3">
+                <label for="amount">Amount</label>
+                <div class="input-group">
+                    <span class="input-group-text">$</span>
+                    <InputNumber id="amount"
+                               @bind-Value="paymentModel.Amount"
+                               class="form-control @GetValidationClass(() => paymentModel.Amount)"
+                               min="0.01"
+                               step="0.01" />
+                </div>
+                <ValidationMessage For="@(() => paymentModel.Amount)" />
+            </div>
+
+            @if (paymentModel.Amount >= installmentThreshold)
+            {
+                <div class="installment-options mb-3">
+                    <label>Installment Options</label>
+                    <div class="btn-group w-100">
+                        @foreach (var option in installmentOptions)
+                        {
+                            <input type="radio" class="btn-check" name="installment" 
+                                   id="@($"installment{option.Months}")"
+                                   checked="@(selectedInstallment == option.Months)"
+                                   @onchange="() => SelectInstallment(option.Months)" />
+                            <label class="btn btn-outline-primary" for="@($"installment{option.Months}")">
+                                @option.Months months
+                                <small class="d-block">$@option.MonthlyAmount.ToString("F2")/mo</small>
+                            </label>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <div class="additional-options mb-4">
+            <div class="form-check mb-2">
+                <InputCheckbox id="emailReceipt" @bind-Value="paymentModel.SendEmailReceipt" />
+                <label class="form-check-label" for="emailReceipt">
+                    Send receipt via email
+                </label>
+            </div>
+            
+            @if (loyaltyEnabled)
+            {
+                <div class="form-check mb-2">
+                    <InputCheckbox id="useLoyaltyPoints" @bind-Value="paymentModel.UseLoyaltyPoints" />
+                    <label class="form-check-label" for="useLoyaltyPoints">
+                        Use loyalty points (@availableLoyaltyPoints points available)
+                    </label>
+                </div>
+            }
+        </div>
+
+        <div class="payment-summary mb-4">
+            <h6>Payment Summary</h6>
+            <div class="summary-item">
+                <span>Subtotal</span>
+                <span>$@paymentModel.Amount.ToString("F2")</span>
+            </div>
+            @if (paymentModel.UseLoyaltyPoints)
+            {
+                <div class="summary-item text-success">
+                    <span>Loyalty Points Discount</span>
+                    <span>-$@loyaltyDiscount.ToString("F2")</span>
+                </div>
+            }
+            @if (processingFee > 0)
+            {
+                <div class="summary-item">
+                    <span>Processing Fee</span>
+                    <span>$@processingFee.ToString("F2")</span>
+                </div>
+            }
+            <div class="summary-item total">
+                <span>Total</span>
+                <span>$@totalAmount.ToString("F2")</span>
+            </div>
+        </div>
+
+        <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary" disabled="@(!IsPaymentValid())" aria-busy="@isProcessing">
+                @(isProcessing ? L["Processing"] : L["PaySecurely", totalAmount.ToString("C2", CurrentCulture)])
+            </button>
+        </div>
+    </EditForm>
+</div>
+
+@code {
+    [Parameter]
+    public string OrderId { get; set; }
+
+    [Parameter]
+    public decimal Amount { get; set; }
+
+    [Parameter]
+    public EventCallback<(string paymentId, string signature)> OnPaymentComplete { get; set; }
+
+    [Parameter]
+    public EventCallback<string> OnPaymentError { get; set; }
+
+    private CultureInfo CurrentCulture => CultureInfo.CurrentCulture;
+    private RegionInfo CurrentRegion => RegionInfo.CurrentRegion;
+    private PaymentModel paymentModel;
+
+    protected override void OnParametersSet()
+    {
+        paymentModel = new PaymentModel { Amount = Amount };
+    private bool isProcessing;
+    private bool showError;
+    private string errorMessage;
+    private string selectedPaymentMethod = "card";
+    private int? selectedInstallment;
+    private decimal walletBalance;
+    private bool loyaltyEnabled;
+    private int availableLoyaltyPoints;
+    private decimal loyaltyDiscount;
+    private decimal processingFee;
+    private decimal totalAmount;
+    private readonly decimal installmentThreshold = 100.0m;
+
+    // Advanced State Management
+    private readonly BehaviorSubject<PaymentState> _stateSubject = new(new PaymentState());
+    private IDisposable _stateSubscription;
+    private IDisposable _analyticsSubscription;
+    private bool _stateRestored;
+
+    // Analytics Events Stream
+    private readonly Subject<AnalyticsEvent> _analyticsSubject = new();
+    private readonly Dictionary<string, object> _sessionData = new();
+
+    private List<PaymentMethodInfo> availablePaymentMethods = new();
+    private List<InstallmentOption> installmentOptions = new();
+    private List<CryptoRate> cryptoRates = new();
+
+    [CascadingParameter]
+    public CultureInfo Culture { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RestoreState();
+        InitializeStateManagement();
+        InitializeAnalytics();
+
+        try
+        {
+            await InitializePaymentOptions();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to initialize payment options");
+            HandleError("Unable to load payment options. Please try again later.");
+        }
+    }
+
+    private void InitializeStateManagement()
+    {
+        _stateSubscription = _stateSubject
+            .Throttle(TimeSpan.FromMilliseconds(300))
+            .Subscribe(async state =>
+            {
+                if (_stateRestored)
+                {
+                    await PersistState(state);
+                    StateHasChanged();
+                }
+            });
+    }
+
+    private void InitializeAnalytics()
+    {
+        _analyticsSubscription = _analyticsSubject
+            .Buffer(TimeSpan.FromSeconds(1))
+            .Where(events => events.Any())
+            .Subscribe(async events =>
+            {
+                foreach (var evt in events)
+                {
+                    await AnalyticsService.TrackEventAsync(evt.Name, evt.Properties);
+                }
+            });
+    }
+
+    private async Task RestoreState()
+    {
+        try
+        {
+            var savedState = await SessionStorage.GetAsync<PaymentState>("paymentState");
+            if (savedState.Success && savedState.Value != null)
+            {
+                _stateSubject.OnNext(savedState.Value);
+                ApplyRestoredState(savedState.Value);
+            }
+
+            var sessionData = await LocalStorage.GetAsync<Dictionary<string, object>>("sessionData");
+            if (sessionData.Success && sessionData.Value != null)
+            {
+                _sessionData = sessionData.Value;
+            }
+
+            _stateRestored = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to restore payment state");
+        }
+    }
+
+    private async Task PersistState(PaymentState state)
+    {
+        try
+        {
+            await SessionStorage.SetAsync("paymentState", state);
+            await LocalStorage.SetAsync("sessionData", _sessionData);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to persist payment state");
+        }
+    }
+
+    private void ApplyRestoredState(PaymentState state)
+    {
+        selectedPaymentMethod = state.SelectedPaymentMethod;
+        selectedInstallment = state.SelectedInstallment;
+        paymentModel = state.PaymentModel;
+        CalculateProcessingFee();
+        CalculateTotalAmount();
+    }
+
+    private void TrackEvent(string eventName, Dictionary<string, object> properties = null)
+    {
+        _analyticsSubject.OnNext(new AnalyticsEvent
+        {
+            Name = eventName,
+            Properties = properties ?? new Dictionary<string, object>()
+        });
+    }
+
+    private async Task InitializePaymentOptions()
+    {
+        var initTasks = new List<Task>
+        {
+            LoadPaymentMethods(),
+            LoadWalletBalance(),
+            LoadLoyaltyInfo(),
+            LoadCryptoRates(),
+            InitializeInstallmentOptions()
+        };
+
+        await Task.WhenAll(initTasks);
+        await InitializeSecurityContext();
+        CalculateTotalAmount();
+    }
+
+    private async Task LoadPaymentMethods()
+    {
+        availablePaymentMethods = await PaymentMethodService.GetAvailableMethodsAsync();
+    }
+
+    private async Task LoadWalletBalance()
+    {
+        walletBalance = await WalletService.GetBalanceAsync();
+    }
+
+    private async Task LoadLoyaltyInfo()
+    {
+        var loyaltyInfo = await PaymentMethodService.GetLoyaltyInfoAsync();
+        loyaltyEnabled = loyaltyInfo.Enabled;
+        availableLoyaltyPoints = loyaltyInfo.Points;
+    }
+
+    private async Task LoadCryptoRates()
+    {
+        cryptoRates = await PaymentMethodService.GetCryptoRatesAsync();
+    }
+
+    private async Task InitializeInstallmentOptions()
+    {
+        if (paymentModel.Amount >= installmentThreshold)
+        {
+            installmentOptions = await PaymentMethodService.GetInstallmentOptionsAsync(paymentModel.Amount);
+        }
+    }
+
+    private void SelectPaymentMethod(string methodId)
+    {
+        selectedPaymentMethod = methodId;
+        CalculateProcessingFee();
+        CalculateTotalAmount();
+    }
+
+    private void SelectInstallment(int months)
+    {
+        selectedInstallment = months;
+        CalculateProcessingFee();
+        CalculateTotalAmount();
+    }
+
+    private void CalculateProcessingFee()
+    {
+        processingFee = PaymentMethodService.CalculateProcessingFee(
+            selectedPaymentMethod,
+            paymentModel.Amount,
+            selectedInstallment
+        );
+    }
+
+    private void CalculateTotalAmount()
+    {
+        totalAmount = paymentModel.Amount;
+
+        if (paymentModel.UseLoyaltyPoints)
+        {
+            loyaltyDiscount = PaymentMethodService.CalculateLoyaltyDiscount(
+                availableLoyaltyPoints,
+                paymentModel.Amount
+            );
+            totalAmount -= loyaltyDiscount;
+        }
+
+        totalAmount += processingFee;
+    }
+
+    private bool IsPaymentValid()
+    {
+        if (selectedPaymentMethod == "wallet" && walletBalance < totalAmount)
+            return false;
+
+        return !isProcessing && 
+               paymentModel.Amount > 0 && 
+               totalAmount > 0 &&
+               (selectedPaymentMethod != "card" || 
+                (ValidateCardNumber() && ValidateExpiryDate() && ValidateCVV()));
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        TrackEvent("PaymentSubmitted", new Dictionary<string, object>
+        {
+            { "PaymentMethod", selectedPaymentMethod },
+            { "Amount", totalAmount },
+            { "HasInstallment", selectedInstallment.HasValue },
+            { "UsesLoyalty", paymentModel.UseLoyaltyPoints }
+        });
+
+        try
+        {
+            isProcessing = true;
+            showError = false;
+            errorMessage = string.Empty;
+
+            if (!await ValidatePaymentRequest())
+            {
+                HandleError("Payment validation failed. Please check your information.");
+                return;
+            }
+
+            var paymentData = await PreparePaymentData();
+            var (success, paymentId, signature) = await ProcessPayment(paymentData);
+
+            if (success)
+            {
+                await OnPaymentComplete.InvokeAsync((paymentId, signature));
+            }
+            else
+            {
+                await OnPaymentError.InvokeAsync("Payment processing failed");
+            }
+
+            if (result.Success)
+            {
+                if (selectedPaymentMethod == "card" && paymentModel.SaveCard)
+                {
+                    await SaveCardForFutureUse();
+                }
+                
+                await OnPaymentSuccess(result.TransactionId);
+            }
+            else
+            {
+                HandleError(result.ErrorMessage ?? "Payment processing failed. Please try again.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Payment processing error");
+            HandleError("An unexpected error occurred. Please try again later.");
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private async Task<PaymentData> PreparePaymentData()
+    {
+        var data = new PaymentData
+        {
+            Method = selectedPaymentMethod,
+            Amount = totalAmount,
+            InstallmentMonths = selectedInstallment,
+            UseLoyaltyPoints = paymentModel.UseLoyaltyPoints,
+            SendEmailReceipt = paymentModel.SendEmailReceipt
+        };
+
+        if (selectedPaymentMethod == "card")
+        {
+            data.CardData = await EncryptionService.EncryptSensitiveData(new
+            {
+                paymentModel.CardNumber,
+                paymentModel.CVV,
+                paymentModel.ExpiryDate,
+                paymentModel.CardHolderName
+            });
+        }
+        else if (selectedPaymentMethod == "crypto")
+        {
+            data.CryptoData = new
+            {
+                paymentModel.CryptoAddress,
+                ExchangeRate = cryptoRates.First().Rate
+            };
+        }
+
+        return data;
+    }
+
+    private async Task SaveCardForFutureUse()
+    {
+        try
+        {
+            await PaymentMethodService.SaveCardAsync(new SavedCardInfo
+            {
+                LastFour = paymentModel.CardNumber.Substring(paymentModel.CardNumber.Length - 4),
+                ExpiryDate = paymentModel.ExpiryDate,
+                CardHolderName = paymentModel.CardHolderName,
+                CardType = GetCardType()
+            });
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save card for future use");
+        }
+    }
+
+    // Previous validation and utility methods remain the same
+    // ... (ValidateCardNumber, ValidateExpiryDate, ValidateCVV, GetCardTypeIcon, etc.)
+
+    private class PaymentState
+    {
+        public string SelectedPaymentMethod { get; set; } = "card";
+        public int? SelectedInstallment { get; set; }
+        public PaymentModel PaymentModel { get; set; } = new();
+    }
+
+    private class AnalyticsEvent
+    {
+        public string Name { get; set; }
+        public Dictionary<string, object> Properties { get; set; }
+    }
+
+    private class PaymentModel
+    {
+        [Required(ErrorMessage = "Card holder name is required")]
+        [RegularExpression(@"^[a-zA-Z\s-']{2,100}$", ErrorMessage = "Please enter a valid name")]
+        public string CardHolderName { get; set; }
+
+        [Required(ErrorMessage = "Card number is required")]
+        [CreditCard(ErrorMessage = "Please enter a valid card number")]
+        public string CardNumber { get; set; }
+
+        [Required(ErrorMessage = "Expiry date is required")]
+        [RegularExpression(@"^(0[1-9]|1[0-2])\/([0-9]{2})$", ErrorMessage = "Please enter a valid expiry date (MM/YY)")]
+        public string ExpiryDate { get; set; }
+
+        [Required(ErrorMessage = "CVV is required")]
+        [RegularExpression(@"^\d{3,4}$", ErrorMessage = "Please enter a valid CVV")]
+        public string CVV { get; set; }
+
+        [Required(ErrorMessage = "Amount is required")]
+        [Range(0.01, 999999.99, ErrorMessage = "Please enter a valid amount")]
+        public decimal Amount { get; set; }
+
+        public string CryptoAddress { get; set; }
+        public bool SaveCard { get; set; }
+        public bool SendEmailReceipt { get; set; }
+        public bool UseLoyaltyPoints { get; set; }
+
+        public List<ValidationResult> ValidationResults { get; } = new();
+    }
+
+    private class PaymentMethodInfo
+    {
+        public string Id { get; set; }
+        public string Name { get; set; }
+        public string Icon { get; set; }
+    }
+
+    private class InstallmentOption
+    {
+        public int Months { get; set; }
+        public decimal MonthlyAmount { get; set; }
+        public decimal TotalAmount { get; set; }
+        public decimal InterestRate { get; set; }
+    }
+
+    private class CryptoRate
+    {
+        public string Currency { get; set; }
+        public decimal Rate { get; set; }
+        public DateTime LastUpdated { get; set; }
+    }
+
+    private class PaymentData
+    {
+        public string Method { get; set; }
+        public decimal Amount { get; set; }
+        public int? InstallmentMonths { get; set; }
+        public bool UseLoyaltyPoints { get; set; }
+        public bool SendEmailReceipt { get; set; }
+        public object CardData { get; set; }
+        public object CryptoData { get; set; }
+    }
+
+    private class SavedCardInfo
+    {
+        public string LastFour { get; set; }
+        public string ExpiryDate { get; set; }
+        public string CardHolderName { get; set; }
+        public string CardType { get; set; }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _stateSubscription?.Dispose();
+        _analyticsSubscription?.Dispose();
+        await PersistState(_stateSubject.Value);
+    }
+
+    private void HandlePaymentMethodKeyPress(KeyboardEventArgs e, string methodId)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            SelectPaymentMethod(methodId);
+        }
+    }
+
+    private string FormatCurrency(decimal amount)
+    {
+        return amount.ToString("C2", CurrentCulture);
+    }
+
+    private string GetAriaLabel(string key, params object[] args)
+    {
+        return L[key, args];
+    }
+
+    private string GetRegionSpecificPaymentLabel()
+    {
+        return L["PaymentAmountIn", CurrentRegion.CurrencySymbol];
+    }
+}

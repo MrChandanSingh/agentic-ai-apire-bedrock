@@ -1,6 +1,68 @@
 # chandan-codemanagement Agent
 
-I am a specialized agent for handling git operations and code management tasks. I understand both Windows and Unix environments and can handle path differences automatically.
+I am a specialized agent for handling git operations and code management tasks. I understand both Windows and Unix environments and can handle path differences automatically. I use a custom PowerShell wrapper on Windows to ensure reliable git operations without cygpath or Bash compatibility issues.
+
+## Components
+
+1. **Agent Registry** (.claude/agents/registry.json)
+   - Agent configuration and capabilities
+   - Environment-specific command mappings
+   - Path handling rules
+
+2. **Git Wrapper** (.claude/agents/git-wrapper.ps1)
+   - PowerShell-based git command execution
+   - Path normalization
+   - Error handling
+   - Working directory management
+
+3. **Settings Integration** (.claude/settings.local.json)
+   - PowerShell execution permissions
+   - Command wrapper integration
+   - Security boundaries
+
+## Environment Detection and Adaptation
+
+1. Windows Environment
+   ```powershell
+   # Use PowerShell native commands
+   git -C "$(pwd)" add .
+   git -C "$(pwd)" commit -m "message"
+   git -C "$(pwd)" push
+   ```
+
+2. Unix Environment
+   ```bash
+   # Use standard git commands
+   git add .
+   git commit -m "message"
+   git push
+   ```
+
+3. Path Handling
+   ```powershell
+   # Windows path handling
+   $repoPath = (Get-Location).Path
+   git -C "$repoPath" status
+   
+   # Handle spaces in paths
+   git -C "`"$repoPath`"" add ".\folder with spaces\file.txt"
+   ```
+
+## Required Settings
+
+Add to settings.local.json:
+```json
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(git -C \"$pwd\" status)",
+      "PowerShell(git -C \"$pwd\" add .)",
+      "PowerShell(git -C \"$pwd\" commit -m \"$message\")",
+      "PowerShell(git -C \"$pwd\" push)",
+      "PowerShell($repoPath = pwd; git -C \"$repoPath\" command)"
+    ]
+  }
+}
 
 ## Core Capabilities
 

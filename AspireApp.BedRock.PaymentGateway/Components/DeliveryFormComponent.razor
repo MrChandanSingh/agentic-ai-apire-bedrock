@@ -1,0 +1,91 @@
+@page "/delivery"
+@using System.ComponentModel.DataAnnotations
+@inject CartState CartState
+
+<div class="delivery-form">
+    <h3>Delivery Address</h3>
+    
+    <EditForm Model="@deliveryModel" OnValidSubmit="@HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+
+        <div class="form-group">
+            <label for="fullName">Full Name</label>
+            <InputText id="fullName" @bind-Value="deliveryModel.FullName" class="form-control" />
+            <ValidationMessage For="@(() => deliveryModel.FullName)" />
+        </div>
+
+        <div class="form-group">
+            <label for="addressLine1">Address Line 1</label>
+            <InputText id="addressLine1" @bind-Value="deliveryModel.AddressLine1" class="form-control" />
+            <ValidationMessage For="@(() => deliveryModel.AddressLine1)" />
+        </div>
+
+        <div class="form-group">
+            <label for="addressLine2">Address Line 2 (Optional)</label>
+            <InputText id="addressLine2" @bind-Value="deliveryModel.AddressLine2" class="form-control" />
+        </div>
+
+        <div class="form-group">
+            <label for="city">City</label>
+            <InputText id="city" @bind-Value="deliveryModel.City" class="form-control" />
+            <ValidationMessage For="@(() => deliveryModel.City)" />
+        </div>
+
+        <div class="form-group">
+            <label for="state">State</label>
+            <InputText id="state" @bind-Value="deliveryModel.State" class="form-control" />
+            <ValidationMessage For="@(() => deliveryModel.State)" />
+        </div>
+
+        <div class="form-group">
+            <label for="zipCode">ZIP Code</label>
+            <InputText id="zipCode" @bind-Value="deliveryModel.ZipCode" class="form-control" />
+            <ValidationMessage For="@(() => deliveryModel.ZipCode)" />
+        </div>
+
+        <div class="form-group">
+            <label for="phone">Phone Number</label>
+            <InputText id="phone" @bind-Value="deliveryModel.Phone" class="form-control" />
+            <ValidationMessage For="@(() => deliveryModel.Phone)" />
+        </div>
+
+        <button type="submit" class="btn btn-primary">Save Delivery Address</button>
+    </EditForm>
+</div>
+
+@code {
+    private DeliveryFormModel deliveryModel = new();
+
+    private async Task HandleValidSubmit()
+    {
+        await CartState.UpdateDeliveryAddress(deliveryModel);
+    }
+}
+
+<style>
+    .delivery-form {
+        max-width: 600px;
+        margin: 2rem auto;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .form-control {
+        width: 100%;
+        padding: 0.5rem;
+        border: 1px solid #ced4da;
+        border-radius: 4px;
+    }
+
+    .validation-message {
+        color: #dc3545;
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+</style>

@@ -1,0 +1,40 @@
+{
+  "agents": {
+    "doc-sync": {
+      "name": "Documentation Sync Agent",
+      "description": "Manages documentation versioning and synchronization",
+      "path": ".claude/agents/doc-sync.md",
+      "config": ".claude/agents/doc-sync.json",
+      "version": "1.0.0",
+      "enabled": true
+    },
+    "chandan-codemanagement": {
+      "name": "chandan-codemanagement",
+      "description": "Git operations and code management agent",
+      "version": "1.0.0",
+      "capabilities": ["git", "windows", "paths"],
+      "commands": {
+        "windows": {
+          "git_push": "powershell -NoProfile -Command \"git -C $pwd push\"",
+          "git_add": "powershell -NoProfile -Command \"git -C $pwd add",
+          "git_commit": "powershell -NoProfile -Command \"git -C $pwd commit -m",
+          "git_status": "powershell -NoProfile -Command \"git -C $pwd status\"",
+          "git_pull": "powershell -NoProfile -Command \"git -C $pwd pull\""
+        },
+        "unix": {
+          "git_push": "git push",
+          "git_add": "git add",
+          "git_commit": "git commit -m",
+          "git_status": "git status",
+          "git_pull": "git pull"
+        }
+      },
+      "path_handlers": {
+        "windows": {
+          "convert_path": "($path -replace '/', '\\').TrimStart('\\')",
+          "quote_path": "\"\"$path\"\""
+        }
+      }
+    }
+  }
+}

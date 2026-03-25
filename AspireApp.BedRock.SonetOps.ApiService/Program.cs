@@ -12,6 +12,23 @@ builder.AddServiceDefaults();
 // Add services to the container.
 builder.Services.AddProblemDetails();
 
+// Add FluentValidation
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<TransactionValidator>();
+
+// Configure CORS for React Native client
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("ReactNativePolicy", builder =>
+    {
+        builder
+            .WithOrigins("http://localhost:8081") // React Native Metro default
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
+    });
+});
+
 // Add security services
 builder.Services.AddScoped<ISecureConfigurationService, SecureConfigurationService>();
 
@@ -60,8 +77,20 @@ app.UseExceptionHandler();
 // Add security headers
 app.UseMiddleware<SecurityHeadersMiddleware>();
 
-// Add API key authentication
-app.UseMiddleware<ApiKeyMiddleware>();
+// Enable CORS
+app.UseCors("ReactNativePolicy");
+
+// Add API key and mobile authentication
+var apiPath = "/api";
+app.Map(apiPath, api =>
+{
+    api.UseMiddleware<ApiKeyMiddleware>();  // For backend service calls
+});
+
+app.Map("/mobile", mobile =>
+{
+    mobile.UseMiddleware<MobileAuthMiddleware>();  // For React Native client
+});
 
 string[] summaries = ["Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"];
 

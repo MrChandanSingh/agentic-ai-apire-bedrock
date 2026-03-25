@@ -1,0 +1,23 @@
+{
+  "version_control": {
+    "current": "1.0.0",
+    "history": [],
+    "strategy": "semantic",
+    "rules": {
+      "major": ["breaking-change", "major-update"],
+      "minor": ["feature", "enhancement"],
+      "patch": ["fix", "typo", "style"]
+    }
+  },
+  "sync_points": {
+    "api": "docs/api/*.md",
+    "guides": "docs/guides/*.md",
+    "readme": "README.md",
+    "changelog": "docs/changelog.md"
+  },
+  "auto_versioning": {
+    "enabled": true,
+    "commit_prefix": "docs",
+    "update_references": true
+  }
+}

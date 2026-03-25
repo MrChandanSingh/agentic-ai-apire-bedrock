@@ -1,0 +1,325 @@
+@page "/checkout"
+@using AspireApp.BedRock.PaymentGateway.Services
+@using AspireApp.BedRock.PaymentGateway.Models
+@using Microsoft.Extensions.Localization
+@using Microsoft.Extensions.Logging
+@inject ICartService CartService
+@inject ICartCheckoutService CartCheckoutService
+@inject IStringLocalizer<CheckoutFormComponent> L
+@inject ILogger<CheckoutFormComponent> Logger
+@inject NavigationManager NavigationManager
+
+<div class="checkout-container" role="main" aria-labelledby="checkout-title">
+    <h3 id="checkout-title" tabindex="-1">@L["Checkout"]</h3>
+
+    @if (!_isValid)
+    {
+        <div class="alert alert-danger" role="alert">
+            @_validationMessage
+        </div>
+    }
+    else
+    {
+        <div class="checkout-steps">
+            <div class="step @GetStepClass(1)">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h4>@L["DeliveryDetails"]</h4>
+                    @if (_currentStep > 1)
+                    {
+                        <div class="step-summary" @onclick="() => SetStep(1)">
+                            <p>@_cartState.DeliveryAddress?.FullAddress</p>
+                            <button type="button" class="btn btn-link">@L["Edit"]</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <DeliveryFormComponent OnValidSubmit="HandleDeliverySubmit" />
+                    }
+                </div>
+            </div>
+
+            <div class="step @GetStepClass(2)">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h4>@L["ReviewOrder"]</h4>
+                    @if (_currentStep == 2)
+                    {
+                        <div class="order-summary">
+                            <div class="cart-items">
+                                @foreach (var item in _cartItems)
+                                {
+                                    <div class="cart-item">
+                                        <div class="item-details">
+                                            <h6>@item.Product.Name</h6>
+                                            <p class="text-muted">@L["Quantity"]: @item.Quantity</p>
+                                        </div>
+                                        <div class="item-price">
+                                            @((item.Product.Price * item.Quantity).ToString("C"))
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="price-summary">
+                                <div class="price-row">
+                                    <span>@L["Subtotal"]</span>
+                                    <span>@_subtotal.ToString("C")</span>
+                                </div>
+                                <div class="price-row">
+                                    <span>@L["Tax"]</span>
+                                    <span>@_tax.ToString("C")</span>
+                                </div>
+                                <div class="price-row total">
+                                    <span>@L["Total"]</span>
+                                    <span>@_total.ToString("C")</span>
+                                </div>
+                            </div>
+
+                            <div class="d-grid gap-2">
+                                <button type="button" class="btn btn-primary" @onclick="ProceedToPayment">
+                                    @L["ProceedToPayment"]
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="step @GetStepClass(3)">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h4>@L["Payment"]</h4>
+                    @if (_currentStep == 3 && _orderId != null)
+                    {
+                        <PaymentFormComponent OrderId="@_orderId" 
+                                         Amount="@_total"
+                                         OnPaymentComplete="HandlePaymentComplete"
+                                         OnPaymentError="HandlePaymentError" />
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<style>
+.checkout-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.checkout-steps {
+    margin-top: 30px;
+}
+
+.step {
+    display: flex;
+    margin-bottom: 30px;
+    opacity: 0.5;
+}
+
+.step.active {
+    opacity: 1;
+}
+
+.step.complete {
+    opacity: 0.8;
+}
+
+.step-number {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-color: var(--bs-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    margin-right: 15px;
+    flex-shrink: 0;
+}
+
+.step-content {
+    flex-grow: 1;
+}
+
+.step-summary {
+    padding: 10px;
+    background-color: var(--bs-light);
+    border-radius: 5px;
+    margin-top: 10px;
+    cursor: pointer;
+}
+
+.cart-items {
+    margin-bottom: 20px;
+}
+
+.cart-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.price-summary {
+    padding: 20px;
+    background-color: var(--bs-light);
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.price-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.price-row.total {
+    font-weight: bold;
+    font-size: 1.2em;
+    border-top: 1px solid var(--bs-border-color);
+    padding-top: 10px;
+    margin-top: 10px;
+}
+</style>
+
+@code {
+    private int _currentStep = 1;
+    private string _orderId;
+    private bool _isValid = true;
+    private string _validationMessage;
+    private List<CartItem> _cartItems = new();
+    private decimal _subtotal;
+    private decimal _tax;
+    private decimal _total;
+    
+    [CascadingParameter]
+    private CartState _cartState { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            await LoadCartData();
+            await ValidateCheckout();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error initializing checkout");
+            _isValid = false;
+            _validationMessage = L["CheckoutInitializationError"];
+        }
+    }
+
+    private async Task LoadCartData()
+    {
+        _cartItems = await CartService.GetCartItemsAsync();
+        var totals = await CartCheckoutService.CalculateOrderTotalAsync();
+        _subtotal = totals.subtotal;
+        _tax = totals.tax;
+        _total = totals.total;
+    }
+
+    private async Task ValidateCheckout()
+    {
+        var isValid = await CartCheckoutService.ValidateCartForCheckoutAsync();
+        if (!isValid)
+        {
+            _isValid = false;
+            _validationMessage = L["InvalidCheckoutState"];
+            return;
+        }
+
+        if (_cartItems.Count == 0)
+        {
+            _isValid = false;
+            _validationMessage = L["EmptyCartError"];
+            return;
+        }
+
+        _isValid = true;
+    }
+
+    private string GetStepClass(int step)
+    {
+        if (step == _currentStep)
+            return "active";
+        if (step < _currentStep)
+            return "complete";
+        return "";
+    }
+
+    private void SetStep(int step)
+    {
+        if (step <= _currentStep)
+            _currentStep = step;
+    }
+
+    private async Task HandleDeliverySubmit()
+    {
+        try
+        {
+            await ValidateCheckout();
+            if (_isValid)
+            {
+                _currentStep = 2;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error handling delivery submission");
+            _isValid = false;
+            _validationMessage = L["DeliverySubmissionError"];
+        }
+    }
+
+    private async Task ProceedToPayment()
+    {
+        try
+        {
+            _orderId = await CartCheckoutService.InitiateCheckoutAsync();
+            _currentStep = 3;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error initiating payment");
+            _isValid = false;
+            _validationMessage = L["PaymentInitiationError"];
+        }
+    }
+
+    private async Task HandlePaymentComplete(string paymentId, string signature)
+    {
+        try
+        {
+            var isValid = await CartCheckoutService.VerifyPaymentStatusAsync(_orderId, paymentId, signature);
+            if (isValid)
+            {
+                NavigationManager.NavigateTo($"/order-confirmation/{_orderId}");
+            }
+            else
+            {
+                _isValid = false;
+                _validationMessage = L["PaymentVerificationFailed"];
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error handling payment completion");
+            _isValid = false;
+            _validationMessage = L["PaymentCompletionError"];
+        }
+    }
+
+    private void HandlePaymentError(string error)
+    {
+        _isValid = false;
+        _validationMessage = error;
+    }
+}

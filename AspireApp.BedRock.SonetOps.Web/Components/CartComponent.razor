@@ -1,0 +1,120 @@
+@using AspireApp.BedRock.SonetOps.Web.Models
+@using AspireApp.BedRock.SonetOps.Web.Store
+@using Fluxor
+@inherits FluxorComponent
+
+<div class="cart-container">
+    <h2>Shopping Cart</h2>
+    
+    @if (!State.Value.Items.Any())
+    {
+        <div class="empty-cart">
+            <p>Your cart is empty</p>
+            <button class="btn btn-primary" @onclick="@(() => NavigationManager.NavigateTo("/"))">
+                Continue Shopping
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="cart-items">
+            @foreach (var item in State.Value.Items)
+            {
+                <CartItemComponent Item="@item" 
+                                 OnUpdateQuantity="@((quantity) => UpdateQuantity(item.Id, quantity))"
+                                 OnRemove="@(() => RemoveFromCart(item.Id))" />
+            }
+        </div>
+
+        <div class="cart-summary">
+            <div class="cart-total">
+                <span>Total:</span>
+                <span>@State.Value.Total.ToString("C")</span>
+            </div>
+
+            <div class="cart-actions">
+                <button class="btn btn-secondary" @onclick="ClearCart">
+                    Clear Cart
+                </button>
+                <button class="btn btn-primary" 
+                        disabled="@(!State.Value.IsCheckoutEnabled)"
+                        @onclick="ProceedToCheckout">
+                    Proceed to Checkout
+                </button>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Inject]
+    private IState<CartState> State { get; set; }
+
+    [Inject]
+    private IDispatcher Dispatcher { get; set; }
+
+    [Inject]
+    private NavigationManager NavigationManager { get; set; }
+
+    private void UpdateQuantity(string itemId, int quantity)
+    {
+        Dispatcher.Dispatch(new UpdateQuantityAction(itemId, quantity));
+    }
+
+    private void RemoveFromCart(string itemId)
+    {
+        Dispatcher.Dispatch(new RemoveFromCartAction(itemId));
+    }
+
+    private void ClearCart()
+    {
+        Dispatcher.Dispatch(new ClearCartAction());
+    }
+
+    private void ProceedToCheckout()
+    {
+        // Navigate to checkout page with cart data
+        NavigationManager.NavigateTo("/checkout");
+    }
+}
+
+<style>
+.cart-container {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.empty-cart {
+    text-align: center;
+    padding: 40px;
+}
+
+.cart-items {
+    margin-bottom: 20px;
+}
+
+.cart-summary {
+    padding: 20px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+.cart-total {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+.cart-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.cart-actions button {
+    min-width: 150px;
+}
+</style>

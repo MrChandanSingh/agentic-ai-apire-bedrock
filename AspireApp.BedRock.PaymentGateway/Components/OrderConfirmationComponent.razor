@@ -1,0 +1,169 @@
+@page "/order-confirmation/{OrderId}"
+@using AspireApp.BedRock.PaymentGateway.Services
+@using Microsoft.Extensions.Localization
+@inject ICartService CartService
+@inject IStringLocalizer<OrderConfirmationComponent> L
+@inject NavigationManager NavigationManager
+
+<div class="confirmation-container" role="main" aria-labelledby="confirmation-title">
+    <div class="text-center mb-4">
+        <div class="confirmation-icon">
+            <i class="bi bi-check-circle-fill text-success"></i>
+        </div>
+        <h3 id="confirmation-title">@L["OrderConfirmed"]</h3>
+        <p class="lead">@L["OrderConfirmationMessage"]</p>
+        <p class="order-id">@L["OrderId"]: @OrderId</p>
+    </div>
+
+    <div class="order-details card">
+        <div class="card-body">
+            <h4>@L["OrderSummary"]</h4>
+            
+            <div class="order-items">
+                @foreach (var item in _cartItems)
+                {
+                    <div class="order-item">
+                        <div class="item-info">
+                            <h6>@item.Product.Name</h6>
+                            <small class="text-muted">@L["Quantity"]: @item.Quantity</small>
+                        </div>
+                        <div class="item-price">
+                            @((item.Product.Price * item.Quantity).ToString("C"))
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="price-summary">
+                <div class="price-row">
+                    <span>@L["Subtotal"]</span>
+                    <span>@_subtotal.ToString("C")</span>
+                </div>
+                <div class="price-row">
+                    <span>@L["Tax"]</span>
+                    <span>@_tax.ToString("C")</span>
+                </div>
+                <div class="price-row total">
+                    <span>@L["Total"]</span>
+                    <span>@_total.ToString("C")</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="delivery-info card mt-4">
+        <div class="card-body">
+            <h4>@L["DeliveryInformation"]</h4>
+            @if (_cartState.DeliveryAddress != null)
+            {
+                <p class="mb-1"><strong>@L["ShippingTo"]:</strong></p>
+                <p class="mb-0">@_cartState.DeliveryAddress.FullName</p>
+                <p class="mb-0">@_cartState.DeliveryAddress.FullAddress</p>
+            }
+        </div>
+    </div>
+
+    <div class="text-center mt-4">
+        <p>@L["ConfirmationEmailMessage"]</p>
+        <div class="d-grid gap-2 d-md-block">
+            <button class="btn btn-primary me-md-2" @onclick="@(() => NavigationManager.NavigateTo("/"))">
+                @L["ContinueShopping"]
+            </button>
+            <button class="btn btn-outline-primary" @onclick="@(() => NavigationManager.NavigateTo($"/order-tracking/{OrderId}"))">
+                @L["TrackOrder"]
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+.confirmation-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.confirmation-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+.order-id {
+    color: var(--bs-secondary);
+    font-size: 1.1rem;
+}
+
+.order-items {
+    margin-bottom: 20px;
+}
+
+.order-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--bs-border-color);
+}
+
+.item-info {
+    flex-grow: 1;
+}
+
+.item-info h6 {
+    margin-bottom: 0.25rem;
+}
+
+.item-price {
+    margin-left: 20px;
+}
+
+.price-summary {
+    margin-top: 20px;
+    padding-top: 20px;
+    border-top: 1px solid var(--bs-border-color);
+}
+
+.price-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.price-row.total {
+    font-weight: bold;
+    font-size: 1.2em;
+    border-top: 1px solid var(--bs-border-color);
+    padding-top: 10px;
+    margin-top: 10px;
+}
+</style>
+
+@code {
+    [Parameter]
+    public string OrderId { get; set; }
+
+    [CascadingParameter]
+    private CartState _cartState { get; set; }
+
+    private List<CartItem> _cartItems = new();
+    private decimal _subtotal;
+    private decimal _tax;
+    private decimal _total;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Load the final cart state before clearing
+        _cartItems = await CartService.GetCartItemsAsync();
+        
+        // Calculate totals
+        _subtotal = await CartService.GetSubtotalAsync();
+        _tax = _subtotal * 0.1m; // TODO: Make configurable
+        _total = _subtotal + _tax;
+
+        // Clear the cart since order is confirmed
+        foreach (var item in _cartItems)
+        {
+            await CartService.RemoveFromCartAsync(item.Product.Id);
+        }
+    }
+}

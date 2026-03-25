@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Get changed files
+files=$(git diff-tree -r --name-only --no-commit-id HEAD@{1} HEAD)
+
+# Run doc-sync review
+powershell -ExecutionPolicy Bypass -File ".\.claude\agents\doc-sync\review.ps1" -Files "$files"

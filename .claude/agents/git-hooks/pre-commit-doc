@@ -1,0 +1,6 @@
+#!/bin/sh
+changed_docs=$(git diff --cached --name-only | grep -E '\.md$|/docs/')
+if [ -n "$changed_docs" ]; then
+    echo "Running documentation sync checks..."
+    claude-code run "Task(description=\"Doc integrity check\", prompt=\"Verify documentation integrity for: $changed_docs\", subagent_type=\"doc-sync\")"
+fi

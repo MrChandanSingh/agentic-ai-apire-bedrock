@@ -1,0 +1,152 @@
+@using AspireApp.BedRock.SonetOps.Web.Models
+@using AspireApp.BedRock.SonetOps.Web.Store
+@using AspireApp.BedRock.SonetOps.Web.Services
+@using Fluxor
+@inject CheckoutService CheckoutService
+@inherits FluxorComponent
+
+<div class="checkout-container">
+    <h2>Checkout</h2>
+
+    @if (!State.Value.Items.Any())
+    {
+        <div class="empty-checkout">
+            <p>Your cart is empty</p>
+            <button class="btn btn-primary" @onclick="@(() => NavigationManager.NavigateTo("/"))">
+                Continue Shopping
+            </button>
+        </div>
+    }
+    else
+    {
+        <div class="order-summary">
+            <h3>Order Summary</h3>
+            <div class="summary-items">
+                @foreach (var item in State.Value.Items)
+                {
+                    <div class="summary-item">
+                        <span>@item.Name x @item.Quantity</span>
+                        <span>@((item.Price * item.Quantity).ToString("C"))</span>
+                    </div>
+                }
+            </div>
+            <div class="total">
+                <span>Total:</span>
+                <span>@State.Value.Total.ToString("C")</span>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="alert alert-danger" role="alert">
+                @ErrorMessage
+            </div>
+        }
+
+        <div class="checkout-actions">
+            <button class="btn btn-secondary" @onclick="@(() => NavigationManager.NavigateTo("/cart"))">
+                Back to Cart
+            </button>
+            <button class="btn btn-primary" 
+                    disabled="@(IsProcessing || !State.Value.IsCheckoutEnabled)"
+                    @onclick="ProcessCheckout">
+                @if (IsProcessing)
+                {
+                    <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                    <span>Processing...</span>
+                }
+                else
+                {
+                    <span>Place Order</span>
+                }
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    [Inject]
+    private IState<CartState> State { get; set; }
+
+    [Inject]
+    private IDispatcher Dispatcher { get; set; }
+
+    [Inject]
+    private NavigationManager NavigationManager { get; set; }
+
+    private bool IsProcessing { get; set; }
+    private string ErrorMessage { get; set; }
+
+    private async Task ProcessCheckout()
+    {
+        try
+        {
+            IsProcessing = true;
+            ErrorMessage = null;
+
+            var orderId = await CheckoutService.InitiateCheckout(State.Value);
+            Dispatcher.Dispatch(new ClearCartAction());
+            NavigationManager.NavigateTo($"/order-confirmation/{orderId}");
+        }
+        catch (Exception ex)
+        {
+            ErrorMessage = "Failed to process checkout. Please try again.";
+            Console.Error.WriteLine($"Checkout error: {ex}");
+        }
+        finally
+        {
+            IsProcessing = false;
+        }
+    }
+}
+
+<style>
+.checkout-container {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.empty-checkout {
+    text-align: center;
+    padding: 40px;
+}
+
+.order-summary {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 4px;
+    margin-bottom: 20px;
+}
+
+.summary-items {
+    margin: 15px 0;
+}
+
+.summary-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.total {
+    display: flex;
+    justify-content: space-between;
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 2px solid #dee2e6;
+}
+
+.checkout-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.checkout-actions button {
+    min-width: 150px;
+}
+</style>

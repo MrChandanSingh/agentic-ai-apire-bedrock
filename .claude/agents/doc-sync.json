@@ -1,0 +1,20 @@
+{
+  "name": "doc-sync",
+  "version": "1.0.0",
+  "watchPaths": ["docs/", "*.md", "src/**/*.md"],
+  "excludePaths": ["node_modules/", "temp/"],
+  "syncTriggers": {
+    "onCommit": true,
+    "onPush": true,
+    "onMerge": true
+  },
+  "versioning": {
+    "enabled": true,
+    "format": "semantic",
+    "changelogPath": "docs/changelog.md"
+  },
+  "hooks": {
+    "pre-commit": "Task(description=\"Pre-commit doc sync\", prompt=\"Verify documentation integrity\", subagent_type=\"doc-sync\")",
+    "post-commit": "Task(description=\"Post-commit doc sync\", prompt=\"Update documentation versions\", subagent_type=\"doc-sync\")"
+  }
+}
